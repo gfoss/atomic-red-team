@@ -38,6 +38,7 @@
   - Atomic Test #2: Create a user account on a MacOS system [macos]
   - Atomic Test #3: Create a new user in a command prompt [windows]
   - Atomic Test #4: Create a new user in PowerShell [windows]
+  - Atomic Test #5: Create a new user in Linux with `root` UID and GID. [linux]
 - T1038 DLL Search Order Hijacking [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1157 Dylib Hijacking [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1133 External Remote Services [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
@@ -72,8 +73,9 @@
 - [T1152 Launchctl](./T1152/T1152.md)
   - Atomic Test #1: Launchctl [macos]
 - [T1168 Local Job Scheduling](./T1168/T1168.md)
-  - Atomic Test #1: Cron Job [macos, centos, ubuntu, linux]
-  - Atomic Test #2: Cron Job [macos, centos, ubuntu, linux]
+  - Atomic Test #1: Cron - Replace crontab with referenced file [macos, centos, ubuntu, linux]
+  - Atomic Test #2: Cron - Add script to cron folder [macos, centos, ubuntu, linux]
+  - Atomic Test #3: Event Monitor Daemon Persistence [macos, centos, ubuntu, linux]
 - T1162 Login Item [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - [T1037 Logon Scripts](./T1037/T1037.md)
   - Atomic Test #1: Logon Scripts [windows]
@@ -111,6 +113,7 @@
 - [T1180 Screensaver](./T1180/T1180.md)
   - Atomic Test #1: Set Arbitrary Binary as Screensaver [windows]
 - [T1101 Security Support Provider](./T1101/T1101.md)
+  - Atomic Test #1: Modify SSP configuration in registry [windows]
 - T1058 Service Registry Permissions Weakness [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - [T1166 Setuid and Setgid](./T1166/T1166.md)
   - Atomic Test #1: Setuid and Setgid [macos, centos, ubuntu, linux]
@@ -197,6 +200,7 @@
   - Atomic Test #9: Delete VSS - wmic [windows]
   - Atomic Test #10: bcdedit [windows]
   - Atomic Test #11: wbadmin [windows]
+  - Atomic Test #12: Delete Filesystem - Linux [linux, centos, ubuntu]
 - [T1222 File Permissions Modification](./T1222/T1222.md)
   - Atomic Test #1: Take ownership using takeown utility [windows]
   - Atomic Test #2: Take ownership recursively using takeown utility [windows]
@@ -213,6 +217,7 @@
   - Atomic Test #13: chown - Change file or folder ownership and group recursively [macos, linux]
   - Atomic Test #14: chown - Change file or folder mode ownership only [macos, linux]
   - Atomic Test #15: chown - Change file or folder ownership recursively [macos, linux]
+  - Atomic Test #16: chattr - Remove immutable file attribute [macos, linux]
 - T1006 File System Logical Offsets [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - [T1144 Gatekeeper Bypass](./T1144/T1144.md)
   - Atomic Test #1: Gatekeeper Bypass [macos]
@@ -244,6 +249,8 @@
   - Atomic Test #1: Clear Logs [windows]
   - Atomic Test #2: FSUtil [windows]
   - Atomic Test #3: rm -rf [macos, linux]
+  - Atomic Test #4: Overwrite Linux Mail Spool [linux]
+  - Atomic Test #5: Overwrite Linux Log [linux]
 - [T1202 Indirect Command Execution](./T1202/T1202.md)
   - Atomic Test #1: Indirect Command Execution - pcalua.exe [windows]
   - Atomic Test #2: Indirect Command Execution - forfiles.exe [windows]
@@ -279,6 +286,7 @@
 - [T1055 Process Injection](./T1055/T1055.md)
   - Atomic Test #1: Process Injection via mavinject.exe [windows]
   - Atomic Test #2: Process Injection via PowerSploit [windows]
+  - Atomic Test #3: Shared Library Injection via /etc/ld.so.preload [linux]
 - T1108 Redundant Access [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - [T1121 Regsvcs/Regasm](./T1121/T1121.md)
   - Atomic Test #1: Regasm Uninstall Method Call Test [windows]
@@ -364,6 +372,7 @@
 - [T1055 Process Injection](./T1055/T1055.md)
   - Atomic Test #1: Process Injection via mavinject.exe [windows]
   - Atomic Test #2: Process Injection via PowerSploit [windows]
+  - Atomic Test #3: Shared Library Injection via /etc/ld.so.preload [linux]
 - T1178 SID-History Injection [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - [T1053 Scheduled Task](./T1053/T1053.md)
   - Atomic Test #1: At.exe Scheduled task [windows]
@@ -539,8 +548,9 @@
 - [T1152 Launchctl](./T1152/T1152.md)
   - Atomic Test #1: Launchctl [macos]
 - [T1168 Local Job Scheduling](./T1168/T1168.md)
-  - Atomic Test #1: Cron Job [macos, centos, ubuntu, linux]
-  - Atomic Test #2: Cron Job [macos, centos, ubuntu, linux]
+  - Atomic Test #1: Cron - Replace crontab with referenced file [macos, centos, ubuntu, linux]
+  - Atomic Test #2: Cron - Add script to cron folder [macos, centos, ubuntu, linux]
+  - Atomic Test #3: Event Monitor Daemon Persistence [macos, centos, ubuntu, linux]
 - [T1170 Mshta](./T1170/T1170.md)
   - Atomic Test #1: Mshta executes JavaScript Scheme Fetch Remote Payload With GetObject [windows]
 - [T1086 PowerShell](./T1086/T1086.md)
@@ -628,6 +638,8 @@
   - Atomic Test #4: scp remote file copy (pull) [linux, macos]
   - Atomic Test #5: sftp remote file copy (push) [linux, macos]
   - Atomic Test #6: sftp remote file copy (pull) [linux, macos]
+  - Atomic Test #7: certutil download (urlcache) [windows]
+  - Atomic Test #8: certutil download (verifyctl) [windows]
 - T1021 Remote Services [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1091 Replication Through Removable Media [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1184 SSH Hijacking [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
@@ -655,12 +667,14 @@
   - Atomic Test #1: Utilize Clipboard to store or execute commands from [windows]
   - Atomic Test #2: PowerShell [windows]
 - [T1074 Data Staged](./T1074/T1074.md)
-  - Atomic Test #1: Stage data from Discovery.bat [windows]
+  - Atomic Test #1: Stage data from Discovery.sh [linux, macos]
 - T1213 Data from Information Repositories [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
-- T1005 Data from Local System [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
+- [T1005 Data from Local System](./T1005/T1005.md)
+  - Atomic Test #1: Search macOS Safari Cookies [macos]
 - T1039 Data from Network Shared Drive [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1025 Data from Removable Media [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
-- T1114 Email Collection [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
+- [T1114 Email Collection](./T1114/T1114.md)
+  - Atomic Test #1: T1114 Email Collection with PowerShell [windows]
 - [T1056 Input Capture](./T1056/T1056.md)
   - Atomic Test #1: Input Capture [windows]
 - T1185 Man in the Browser [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
@@ -717,6 +731,8 @@
   - Atomic Test #4: scp remote file copy (pull) [linux, macos]
   - Atomic Test #5: sftp remote file copy (push) [linux, macos]
   - Atomic Test #6: sftp remote file copy (pull) [linux, macos]
+  - Atomic Test #7: certutil download (urlcache) [windows]
+  - Atomic Test #8: certutil download (verifyctl) [windows]
 - T1071 Standard Application Layer Protocol [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1032 Standard Cryptographic Protocol [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
 - T1095 Standard Non-Application Layer Protocol [CONTRIBUTE A TEST](https://atomicredteam.io/contributing)
